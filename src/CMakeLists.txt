@@ -1,2 +1,1 @@
-add_subdirectory(subdir)
-target_sources(${main_lib} PRIVATE sample_module.f90)
+target_sources(${main_lib} PRIVATE pic_device.f90 pic_gpu_runtime.F90)

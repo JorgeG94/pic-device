@@ -14,10 +14,6 @@ auto-executables = true
 auto-tests = false
 #auto-examples = true
 module-naming = false
-[[test]]
-name = "sample"
-source-dir = "test"
-main = "main_tests.f90"
 [install]
 library = true
 
@@ -25,9 +21,6 @@ library = true
 implicit-typing = true
 implicit-external = true
 source-form = "free"
-
-[dependencies]
-test-drive.git = "https://github.com/fortran-lang/test-drive"
 
 [extra.fortitude.check]
 select = ["C", "E", "S"]

@@ -20,33 +20,48 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 # see cmake/ subdirectory for this
 include(demo_status)
 
-option(ENABLE_TESTING "Enable testing for ${project_name}" ON)
+# --- GPU runtime selection ---------------------------------------------
+set(GPU_RUNTIME
+    ""
+    CACHE STRING "Select GPU runtime: HIP or CUDA")
+set_property(CACHE GPU_RUNTIME PROPERTY STRINGS "HIP" "CUDA")
+
+set(libraries_to_link)
+if(GPU_RUNTIME STREQUAL "CUDA")
+  message(STATUS "Configuring project with CUDA runtime")
+  enable_language(CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  add_compile_definitions(CUDA)
+  list(APPEND libraries_to_link CUDA::cudart)
+elseif(GPU_RUNTIME STREQUAL "HIP")
+  message(STATUS "Configuring project with HIP runtime")
+  enable_language(HIP)
+  find_package(HIP REQUIRED)
+  add_compile_definitions(HIP)
+  list(APPEND libraries_to_link hip::host)
+
+else()
+  set(GPU_RUNTIME "NONE")
+  message(STATUS "No GPU runtime selected (building CPU-only version)")
+endif()
+# -----------------------------------------------------------------------
 
 add_subdirectory(cmake)
 
-set(libraries_to_link)
-if(NOT TARGET test-drive::test-drive AND ENABLE_TESTING)
-  enable_testing()
-  find_package("test-drive" REQUIRED)
-endif()
-
 add_library(${main_lib} STATIC)
+target_link_libraries(${main_lib} PRIVATE ${libraries_to_link})
 
 # Enable position-independent code for shared-library linking support
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(src)
 
-if(ENABLE_TESTING)
-  add_subdirectory(test)
-endif()
-
 set_target_properties(${main_lib} PROPERTIES Fortran_MODULE_DIRECTORY
                                              ${CMAKE_BINARY_DIR}/modules)
 
 add_executable(${exe_name} ${PROJECT_SOURCE_DIR}/app/main.f90)
 target_include_directories(${exe_name} PRIVATE "${CMAKE_BINARY_DIR}/modules")
-target_link_libraries(${exe_name} PRIVATE ${main_lib})
+target_link_libraries(${exe_name} PRIVATE ${main_lib} ${libraries_to_link})
 
 foreach(tgt ${all_targets})
   message(STATUS "${tgt}")
@@ -93,16 +108,3 @@ install(
   RENAME ${project_name}-config.cmake)
 
 print_summary()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-  add_custom_target(
-    coverage
-    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-    COMMAND ${CMAKE_COMMAND} -E remove -f coverage.info
-    COMMAND lcov --directory . --capture --output-file coverage.info
-    COMMAND lcov --ignore-errors unused --remove coverage.info '/usr/*'
-            '*/build/*' --output-file coverage_filtered.info
-    COMMAND genhtml coverage_filtered.info --output-directory coverage_report
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Generating code coverage report")
-endif()
