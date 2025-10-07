@@ -1,5 +1,8 @@
-# modern-fortran-project
+# GPU device manager but in Fortran
 A template repository for modern fortran projects
+
+This is a sample and work in progress to manage certain device aspects from
+a simple Fortran interface kinda way.
 
 ## How to install the FPM
 
