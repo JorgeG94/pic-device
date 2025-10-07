@@ -4,6 +4,10 @@ A template repository for modern fortran projects
 This is a sample and work in progress to manage certain device aspects from
 a simple Fortran interface kinda way.
 
+To build, depending on your GPU runtime you can use: `cmake -DGPU_RUNTIME=CUDA/HIP ../` 
+
+I have not added support for using HIP with a CUDA backend. Feel free to add that!
+
 A simple way to use the module is 
 
 ``` 
