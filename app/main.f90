@@ -2,7 +2,6 @@ program main
    use pic_device
    implicit none
    type(pic_device_type) :: device_info
-   type(pic_device_type) :: device_info_two
    integer(c_int) :: device_count, ierr
 
    call backend_get_device_count(device_count, ierr)

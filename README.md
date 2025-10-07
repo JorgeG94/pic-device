@@ -4,6 +4,67 @@ A template repository for modern fortran projects
 This is a sample and work in progress to manage certain device aspects from
 a simple Fortran interface kinda way.
 
+A simple way to use the module is 
+
+``` 
+program main
+   use pic_device
+   implicit none
+   type(pic_device_type) :: device_info
+   integer(c_int) :: device_count, ierr
+
+   call backend_get_device_count(device_count, ierr)
+
+   print *, "Device count ", device_count
+
+   call device_info%get_device_info()
+
+   print *, to_string(device_info)
+
+end program main
+```
+
+Which will result in:
+
+```
+ Device count            4
+ Device ID:   0
+Free memory: 32167.56 MB
+Total memory: 32498.56 MB
+Used memory:  331.00 MB
+```
+
+The `pic_device_type` derived type provides a convenient container that carries the variables around. However, the module
+`pic_gpu_runtime` contains the interfaces to the cuda/hip runtime to achieve similar functionality:
+
+```
+   subroutine backend_meminfo(freeMem, totalMem, ierr)
+      integer(c_size_t), intent(out) :: freeMem, totalMem
+      integer(c_int), intent(out) :: ierr
+#ifdef CUDA
+      ierr = cudaMemGetInfo(freeMem, totalMem)
+#elif defined(HIP)
+      ierr = hipMemGetInfo(freeMem, totalMem)
+#else
+      freeMem = 0_c_size_t
+      totalMem = 0_c_size_t
+      ierr = -1
+#endif
+   end subroutine backend_meminfo
+```
+
+Which can be called independently like:
+
+```
+block 
+integer(c_int) :: ierr
+integer(c_size_t) :: free_memory, total_memory 
+
+call backend_meminfo(free_memory, total_memory, ierr)
+
+end block
+```
+
 ## How to install the FPM
 
 See the instructions [here](https://fpm.fortran-lang.org/install/index.html)
