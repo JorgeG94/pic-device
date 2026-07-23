@@ -38,6 +38,46 @@ Total memory: 32498.56 MB
 Used memory:  331.00 MB
 ```
 
+## Two layers
+
+The project is deliberately split in two:
+
+| layer | file | what it is |
+|---|---|---|
+| raw bindings | `src/pic_cuda_runtime.F90`, `src/pic_hip_runtime.F90` | the vendor APIs verbatim — **318 CUDA** and **467 HIP** entry points, plus their enums, flag constants and `BIND(C)` derived types. **Generated — do not edit.** |
+| abstraction | `src/pic_gpu_runtime.F90` | the `backend_*` API that hides which of the two you built against |
+| convenience | `src/pic_device.f90` | `pic_device_type` and its `to_string` |
+
+The raw layer is generated from the vendor headers by
+`tools/generate_gpu_bindings.py`:
+
+```sh
+python3 tools/generate_gpu_bindings.py --api both \
+        --cuda $CUDA_HOME --hip /path/to/ROCm/hip
+```
+
+Both generated files are checked in, so building needs neither toolkit's
+headers. Each is wrapped in the `#ifdef` the build already sets, so the
+unselected backend compiles to nothing — which is why both can be listed
+unconditionally, as fpm requires.
+
+The generator is not a transliteration: it preprocesses the headers with a real
+`cpp`, resolves versioned symbol aliases, and verifies every emitted derived
+type against `sizeof`/`offsetof` from a compiled C probe, dropping anything it
+cannot confirm rather than emitting a layout that might be wrong. See
+`tools/generate_gpu_bindings.py` for the details, and `tools/hip_compat/` for
+why HIP needs three small shim headers to preprocess from a plain ROCm/hip
+checkout.
+
+**Why not hipfort?** hipfort is large and covers the whole ROCm stack. If all
+you want is the runtime API behind a portable Fortran interface, generating it
+is a few hundred lines of Python and yields exactly the surface you use.
+
+Adding a call means adding a `backend_*` wrapper — not writing another
+interface block. Whatever you need is almost certainly already bound.
+
+## The abstraction layer
+
 The `pic_device_type` derived type provides a convenient container that carries the variables around. However, the module
 `pic_gpu_runtime` contains the interfaces to the cuda/hip runtime to achieve similar functionality:
 
@@ -68,6 +108,24 @@ call backend_meminfo(free_memory, total_memory, ierr)
 
 end block
 ```
+
+The full `backend_*` surface:
+
+| | |
+|---|---|
+| `backend_get_device_count(n, ierr)` | number of visible devices |
+| `backend_get_device(id, ierr)` / `backend_set_device(id, ierr)` | current device |
+| `backend_meminfo(free, total, ierr)` | device memory |
+| `backend_synchronize(ierr)` | block until the device is idle |
+| `backend_error_string(ierr)` | decode a status code to text |
+| `backend_name()` | `"CUDA"`, `"HIP"` or `"none"` |
+| `BACKEND_SUCCESS`, `BACKEND_UNAVAILABLE` | compare against these, not `0` / `-1` |
+
+`BACKEND_UNAVAILABLE` is returned by every wrapper in a CPU-only build, so "no
+GPU runtime was compiled in" stays distinguishable from "the runtime returned
+an error". `backend_error_string` matters more than it looks: without it a
+caller can only report *"GPU error 35"* rather than *"CUDA driver version is
+insufficient for CUDA runtime version"*.
 
 ## How to install the FPM
 
