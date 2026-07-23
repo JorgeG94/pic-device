@@ -7,7 +7,7 @@ Generate compiler-agnostic Fortran 2008 `iso_c_binding` interfaces to the CUDA
 and HIP runtime APIs, directly from the vendor headers.
 
     python3 tools/generate_gpu_bindings.py --api cuda --cuda $CUDA_HOME
-    python3 tools/generate_gpu_bindings.py --api hip  --hip  ../hip
+    python3 tools/generate_gpu_bindings.py --api hip  --hip  $HIP_HOME
     python3 tools/generate_gpu_bindings.py --api both
 
 Output goes to src/ as pic_cuda_runtime.F90 and pic_hip_runtime.F90, each
