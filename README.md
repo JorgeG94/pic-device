@@ -160,6 +160,24 @@ Two places where the backends genuinely differ, handled here so callers never
 see them: `hipHostMalloc` takes a flags argument `cudaMallocHost` does not, and
 the free is spelled `cudaFreeHost` vs `hipHostFree`.
 
+### Testing the HIP backend without an AMD GPU
+
+`test/hip_over_cuda/` builds a stand-in `libamdhip64.so` whose `hip*` entry
+points forward to the CUDA runtime, then links the HIP build against it:
+
+```sh
+CUDA_HOME=$CUDA_HOME ./test/hip_over_cuda/run.sh
+```
+
+Without it the HIP backend can only be compiled, never run, leaving its
+signatures — argument order, by-value versus by-reference, types — unexercised.
+Those are exactly what a generated binding gets wrong, and a compiler cannot
+catch them because a `BIND(C)` interface is an assertion, not a check.
+
+It proves the Fortran side calls these functions correctly. It does **not**
+substitute for real AMD hardware: it says nothing about whether ROCm behaves as
+assumed.
+
 `fpm run` exercises the whole surface — allocate, typed copy, memset, pinned
 host memory, a non-blocking stream, an async transfer, event timing, and
 teardown — and reports each step.
