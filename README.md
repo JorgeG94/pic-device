@@ -111,15 +111,58 @@ end block
 
 The full `backend_*` surface:
 
+**Device**
+
 | | |
 |---|---|
 | `backend_get_device_count(n, ierr)` | number of visible devices |
 | `backend_get_device(id, ierr)` / `backend_set_device(id, ierr)` | current device |
 | `backend_meminfo(free, total, ierr)` | device memory |
 | `backend_synchronize(ierr)` | block until the device is idle |
+| `backend_device_reset(ierr)` | tear down everything on the device |
+
+**Memory and transfers**
+
+| | |
+|---|---|
+| `backend_malloc(ptr, nbytes, ierr)` / `backend_free(ptr, ierr)` | device memory |
+| `backend_malloc_host(ptr, nbytes, ierr)` / `backend_free_host(ptr, ierr)` | page-locked host memory |
+| `backend_memset(ptr, value, nbytes, ierr)` / `_async(..., stream, ierr)` | fill |
+| `backend_memcpy(dst, src, nbytes, kind, ierr)` / `_async(..., stream, ierr)` | raw copy |
+| `backend_copy_to_device(dev, array, ierr)` | **typed whole-array copy** |
+| `backend_copy_to_host(array, dev, ierr)` | ditto, back |
+| `BACKEND_MEMCPY_HOST_TO_DEVICE`, `..._DEVICE_TO_HOST`, … | direction constants |
+
+**Streams and events**
+
+| | |
+|---|---|
+| `backend_stream_create(s, ierr [,flags])` / `_destroy` / `_synchronize` / `_query` | streams |
+| `backend_event_create(e, ierr)` / `_destroy` / `_record(e, ierr [,stream])` / `_synchronize` | events |
+| `backend_event_elapsed_time(ms, e0, e1, ierr)` | timing, milliseconds |
+| `BACKEND_STREAM_DEFAULT`, `BACKEND_STREAM_NON_BLOCKING` | stream flags |
+
+**Status**
+
+| | |
+|---|---|
 | `backend_error_string(ierr)` | decode a status code to text |
+| `backend_get_last_error(ierr)` / `backend_peek_last_error(ierr)` | sticky errors from async work |
 | `backend_name()` | `"CUDA"`, `"HIP"` or `"none"` |
 | `BACKEND_SUCCESS`, `BACKEND_UNAVAILABLE` | compare against these, not `0` / `-1` |
+
+`backend_copy_to_device` / `backend_copy_to_host` take the byte count **from the
+array**, which removes the commonest transfer bug: a hand-computed size that
+silently goes wrong the moment someone changes a kind. Generic over `real64`
+(1-D and 2-D), `real32` and `int32`; add a `module procedure` for more.
+
+Two places where the backends genuinely differ, handled here so callers never
+see them: `hipHostMalloc` takes a flags argument `cudaMallocHost` does not, and
+the free is spelled `cudaFreeHost` vs `hipHostFree`.
+
+`fpm run` exercises the whole surface — allocate, typed copy, memset, pinned
+host memory, a non-blocking stream, an async transfer, event timing, and
+teardown — and reports each step.
 
 `BACKEND_UNAVAILABLE` is returned by every wrapper in a CPU-only build, so "no
 GPU runtime was compiled in" stays distinguishable from "the runtime returned
